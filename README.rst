@@ -18,7 +18,11 @@ ytmusicapi: Unofficial API for YouTube Music
     :target: https://github.com/sigma67/ytmusicapi/commits
 
 
-A work-in-progress API that emulates web requests from the YouTube Music web client.
+A fork of sigma67's work-in-progress API that emulates web requests from the YouTube Music web client, that adds downloading of streams to disk for offline listening.
+
+Downloaded files are named and placed in subdirectories according to artist and album and title metadata, and the saved files are tagged appropriately using mutagen. Thumbnail images are
+downloaded as well and either saved to files (in the case of artist and album thumbnails) or added as image metadata tags (in the case of songs). Partially downloaded files are deleted
+if the download is interrupted. Existing files are skipped and not re-downloaded by default. 
 
 Currently you need to extract your authentication data from your web browser and provide it through a file for it to work.
 
@@ -26,6 +30,16 @@ Currently you need to extract your authentication data from your web browser and
 
 Features
 --------
+| **Downloading**:
+
+* download songs by videoId
+* batch-download playlists, albums and artists
+* uses highest-quality stream available, prefers audio-only formats but will fall back to video/* mimetypes if there are no audio/* streams available
+* uses pytube to decode signatureCipher-protected stream urls by analyzing decoding steps in the generated base.js referenced by the watch page (tricky!)
+* names and places downloaded files into subdirectories based on artist/album/title metadata
+* downloads and saves thumbnail images for artists, albums and songs
+* uses mutagen to tag downloaded files with artist/album/title/thumbnail metadata
+
 | **Browsing**:
 
 * search (including all filters)

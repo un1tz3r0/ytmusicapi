@@ -184,3 +184,56 @@ def find_objects_by_key(object_list, key, nested=None):
         if key in item:
             objects.append(item)
     return objects
+    
+def isstr(val):
+    return isinstance(val, (str, bytes))
+
+def isseq(val):
+    from collections import abc
+    return not isstr(val) and isinstance(val, abc.Iterable)
+
+def ismap(val):
+    from collections import abc
+    return not isstr(val) and isinstance(val, abc.Mapping) #isseq(val) and hasattr(val, 'items') and callable(getattr(val, 'items'))
+
+def treewalk(tree):
+	def _treewalk(val, prefix=[], root=None):
+		if root != val:
+			if root == None:
+				root = val
+			if not isseq(val) and not ismap(val):
+				yield (prefix, val)
+			else:
+				prune = yield (prefix, val)
+				if not prune:
+					if not ismap(val):
+						val = {i:v for i,v in enumerate(val)}
+					for k,v in val.items():
+						yield from _treewalk(v, prefix + [k], root)
+		else:
+			yield (prefix, elipsis)
+	yield from _treewalk(tree)
+
+def pathfilter(startswith=None, contains=None, endswith=None, isexactly=None):
+	''' parameters are all sequences of key-path-subsequence alternatives. path must match at least one sequence from each non-empty parameter at the position the parameter names '''
+	def filterfn(path, val):
+		if isexactly != None and len(isexactly) > 0 and all([len(path) < len(pattern) or any([path[i] != pattern[i] for i in range(0, len(pattern))]) for pattern in isexactly]):
+			return False
+		if startswith != None and len(startswith) > 0 and all([len(path) < len(pattern) or any([path[i] != pattern[i] for i in range(0, len(pattern))]) for pattern in startswith]):
+			return False
+		if endswith != None and len(endswith) > 0 and all([len(path) < len(pattern) or any([path[-i] != pattern[-i] for i in range(0, len(pattern))]) for pattern in endswith]):
+			return False
+		if contains != None and len(contains) > 0 and all([len(path) < len(pattern) or all([ any([ path[i+j] != pattern[j] for j in range(0, len(pattern)) ]) for i in range(0, len(path) - len(pattern)) ]) for pattern in contains]):
+			return False
+		return True
+	return filterfn
+
+def treefind(root, *filters, **kwargs):
+	if len(kwargs) > 0:
+		filters = (*filters, pathfilter(**kwargs))
+	for path, val in treewalk(root):
+		for filt in filters:
+			if filt(path, val):
+				yield path, val
+				break
+
