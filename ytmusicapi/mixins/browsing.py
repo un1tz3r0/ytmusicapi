@@ -8,7 +8,6 @@ from ytmusicapi.parsers.playlists import *
 from ytmusicapi.parsers.utils import treefind
 
 class BrowsingMixin:
-<<<<<<< HEAD
     def search(self,
                 query: str,
                 filter: str = None,
@@ -715,7 +714,7 @@ class BrowsingMixin:
                 'messageSubtextRenderer']['text']['runs'][0]['text']
             lyrics['source'] = response['contents']['messageRenderer']['text']['runs'][0]['text']
         return lyrics
-=======
+
     def search(self,
                query: str,
                filter: str = None,
