@@ -18,18 +18,16 @@ ytmusicapi: Unofficial API for YouTube Music
     :target: https://github.com/sigma67/ytmusicapi/commits
 
 
-<<<<<<< HEAD
-A fork of sigma67's work-in-progress API that emulates web requests from the YouTube Music web client, that adds downloading of streams to disk for offline listening.
-
-Downloaded files are named and placed in subdirectories according to artist and album and title metadata, and the saved files are tagged appropriately using mutagen. Thumbnail images are
-downloaded as well and either saved to files (in the case of artist and album thumbnails) or added as image metadata tags (in the case of songs). Partially downloaded files are deleted
-if the download is interrupted. Existing files are skipped and not re-downloaded by default. 
-
-Currently you need to extract your authentication data from your web browser and provide it through a file for it to work.
+YTMusicAPI
 =======
 ytmusicapi is a Python 3 library to send requests to the YouTube Music API.
 It emulates YouTube Music web client requests using the user's cookie data for authentication.
->>>>>>> 8f4dfd19eeae78d6fc66de7c82628a42f2ffbde5
+
+This is a fork of sigma67's work-in-progress API that emulates web requests from the YouTube Music web client, that adds downloading of streams to disk for offline listening.
+
+Currently you need to extract your authentication data from your web browser and provide it through a file for it to work.
+
+
 
 .. features
 
@@ -74,6 +72,9 @@ Features
 
 Usage
 ------
+
+Basic usage and search querying:
+
 .. code-block:: python
 
     from ytmusicapi import YTMusic
@@ -83,6 +84,25 @@ Usage
     search_results = ytmusic.search('Oasis Wonderwall')
     ytmusic.add_playlist_items(playlistId, [search_results[0]['videoId']])
 
+Downloading for offline listening:
+
+.. code-block:: python
+
+    import os
+    import ytmusicapi
+
+    ytm = ytmusicapi.YTMusic(os.path.expanduser("~/.headers_auth.json"))
+
+    # download an artists discography
+    ytm.download_artist_albums("Floating Points", "~/Music")
+
+    # download the last 10 songs in your playback history
+    ytm.download_playlist(ytm.get_history())
+
+    # download the most recent 100 songs you liked
+    ytm.download_playlist(ytm.get_liked_songs(limit=100))
+
+
 The `tests <https://github.com/sigma67/ytmusicapi/blob/master/tests/test.py>`_ are also a great source of usage examples.
 
 .. end-features
@@ -91,6 +111,10 @@ Requirements
 ==============
 
 - Python 3.5 or higher - https://www.python.org
+- Python modules:
+	- mutagen
+	- requests
+	- pytube
 
 Setup and Usage
 ===============
