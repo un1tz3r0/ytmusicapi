@@ -80,8 +80,9 @@ class TestYTMusic(unittest.TestCase):
         self.assertGreater(len(results), 100)
 
     def test_get_album(self):
-        results = youtube_auth.get_album("MPREb_BQZvl3BFGay")
+        results = youtube_auth.get_album("MPREb_4pL8gzRtw1p")
         self.assertEqual(len(results), 9)
+        self.assertTrue(results['tracks'][0]['isExplicit'])
         self.assertIn('feedbackTokens', results['tracks'][0])
         results = youtube.get_album("MPREb_BQZvl3BFGay")
         self.assertEqual(len(results['tracks']), 7)
@@ -97,23 +98,22 @@ class TestYTMusic(unittest.TestCase):
     def test_get_lyrics(self):
         playlist = youtube.get_watch_playlist("ZrOKjDZOtkA")
         lyrics_song = youtube.get_lyrics(playlist["lyrics"])
-        self.assertTrue(lyrics_song["lyricsFound"])
         self.assertIsNotNone(lyrics_song["lyrics"])
         self.assertIsNotNone(lyrics_song["source"])
 
         playlist = youtube.get_watch_playlist("9TnpB8WgW4s")
-        no_lyrics_song = youtube.get_lyrics(playlist["lyrics"])
-        self.assertFalse(no_lyrics_song["lyricsFound"])
-        self.assertIsNotNone(no_lyrics_song["lyrics"])
-        self.assertIsNotNone(no_lyrics_song["source"])
+        self.assertIsNone(playlist["lyrics"])
+        self.assertRaises(Exception, youtube.get_lyrics, playlist["lyrics"])
 
     ###############
     # WATCH
     ###############
 
     def test_get_watch_playlist(self):
-        playlist = youtube.get_watch_playlist("4y33h81phKU", limit=50)
+        playlist = youtube_auth.get_watch_playlist("9mWr4c_ig54", limit=50)
         self.assertGreater(len(playlist['tracks']), 50)
+        playlist = youtube_auth.get_watch_playlist("UoAf_y9Ok4k")  # private track
+        self.assertGreaterEqual(len(playlist['tracks']), 25)
 
     def test_get_watch_playlist_shuffle(self):
         playlist = youtube.get_watch_playlist_shuffle(
@@ -331,7 +331,8 @@ class TestYTMusic(unittest.TestCase):
         self.assertGreater(len(album['tracks']), 0)
 
     def test_get_library_upload_artist(self):
-        tracks = youtube_auth.get_library_upload_artist(config['uploads']['private_artist_id'])
+        tracks = youtube_auth.get_library_upload_artist(config['uploads']['private_artist_id'],
+                                                        100)
         self.assertGreater(len(tracks), 0)
 
 

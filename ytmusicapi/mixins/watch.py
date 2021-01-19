@@ -12,6 +12,10 @@ class WatchMixin:
         Get a watch list of tracks. This watch playlist appears when you press
         play on a track in YouTube Music.
 
+        Please note that the `INDIFFERENT` likeStatus of tracks returned by this
+        endpoint may be either `INDIFFERENT` or `DISLIKE`, due to ambiguous data
+        returned by YouTube Music.
+
         :param videoId: videoId of the played video
         :param playlistId: playlistId of the played playlist or album
         :param limit: minimum number of watch playlist items to return
@@ -34,7 +38,9 @@ class WatchMixin:
                           "width": 400,
                           "height": 225
                         }
-                      ]
+                      ],
+                      "feedbackTokens": [],
+                      "likeStatus": "LIKE"
                     },...
                 ],
                 "lyrics": "MPLYt_HNNclO0Ddoc-17"
@@ -64,7 +70,7 @@ class WatchMixin:
         ])
 
         lyrics_browse_id = None
-        if len(watchNextRenderer['tabs']) > 1:
+        if 'unselectable' not in watchNextRenderer['tabs'][1]['tabRenderer']:
             lyrics_browse_id = watchNextRenderer['tabs'][1]['tabRenderer']['endpoint'][
                 'browseEndpoint']['browseId']
 
@@ -82,7 +88,9 @@ class WatchMixin:
 
         return {'tracks': tracks, 'lyrics': lyrics_browse_id}
 
-    def get_watch_playlist_shuffle(self, playlistId: str = None, limit=50) -> Dict[List[Dict], str]:
+    def get_watch_playlist_shuffle(self,
+                                   playlistId: str = None,
+                                   limit=50) -> Dict[List[Dict], str]:
         """
         Shuffle any playlist
 

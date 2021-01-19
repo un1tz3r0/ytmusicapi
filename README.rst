@@ -18,6 +18,7 @@ ytmusicapi: Unofficial API for YouTube Music
     :target: https://github.com/sigma67/ytmusicapi/commits
 
 
+<<<<<<< HEAD
 A fork of sigma67's work-in-progress API that emulates web requests from the YouTube Music web client, that adds downloading of streams to disk for offline listening.
 
 Downloaded files are named and placed in subdirectories according to artist and album and title metadata, and the saved files are tagged appropriately using mutagen. Thumbnail images are
@@ -25,6 +26,10 @@ downloaded as well and either saved to files (in the case of artist and album th
 if the download is interrupted. Existing files are skipped and not re-downloaded by default. 
 
 Currently you need to extract your authentication data from your web browser and provide it through a file for it to work.
+=======
+ytmusicapi is a Python 3 library to send requests to the YouTube Music API.
+It emulates YouTube Music web client requests using the user's cookie data for authentication.
+>>>>>>> 8f4dfd19eeae78d6fc66de7c82628a42f2ffbde5
 
 .. features
 
@@ -48,6 +53,7 @@ Features
 * get albums
 * get song metadata
 * get watch playlists (playlist that appears when you press play in YouTube Music)
+* get song lyrics
 
 | **Library management**:
 
@@ -73,8 +79,8 @@ Usage
     from ytmusicapi import YTMusic
 
     ytmusic = YTMusic('headers_auth.json')
-    playlistId = ytmusic.create_playlist("test", "test description")
-    search_results = ytmusic.search("Oasis Wonderwall")
+    playlistId = ytmusic.create_playlist('test', 'test description')
+    search_results = ytmusic.search('Oasis Wonderwall')
     ytmusic.add_playlist_items(playlistId, [search_results[0]['videoId']])
 
 The `tests <https://github.com/sigma67/ytmusicapi/blob/master/tests/test.py>`_ are also a great source of usage examples.
