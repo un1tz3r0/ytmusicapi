@@ -1,4 +1,5 @@
 from . import *
+import re
 
 
 def parse_song_artists(data, index):
@@ -6,34 +7,40 @@ def parse_song_artists(data, index):
     if not flex_item:
         return None
     else:
-        return parse_song_artists_runs(flex_item['text']['runs'])
+        runs = flex_item['text']['runs']
+        artists = []
+        for j in range(int(len(runs) / 2) + 1):
+            artists.append({
+                'name': runs[j * 2]['text'],
+                'id': nav(runs[j * 2], NAVIGATION_BROWSE_ID, True)
+            })
+        return artists
 
 
-def parse_song_artists_runs(runs):
-    artists = []
-    for j in range(int(len(runs) / 2) + 1):
-        artists.append({
-            'name': runs[j * 2]['text'],
-            'id': nav(runs[j * 2], NAVIGATION_BROWSE_ID, True)
-        })
+def parse_song_runs(runs):
+    parsed = {'artists': []}
+    for run in runs:
+        text = run['text']
+        if 'navigationEndpoint' in run:  # artist or album
+            item = {'name': text, 'id': nav(run, NAVIGATION_BROWSE_ID, True)}
 
-    return artists
+            if item['id'] and item['id'].startswith('MPRE'):  # album
+                parsed['album'] = item
+            else:  # artist
+                parsed['artists'].append(item)
 
-
-def get_last_artist_index(runs):
-    try:
-        return next(
-            len(runs) - i - 1 for i, run in enumerate(reversed(runs))
-            if 'navigationEndpoint' in run and
-            (nav(run, NAVIGATION_BROWSE_ID).startswith('UC') or
-             nav(run, NAVIGATION_BROWSE_ID).startswith('FEmusic_library_privately_owned_artist')))
-    except StopIteration:  # try to find album if no artist IDs available
-        if 'navigationEndpoint' in runs[-3] or runs[-3]['text'].endswith('views'):  # has album
-            return len(runs) - 5
-        elif runs[-1]['text'].endswith('views'):
-            return len(runs) - 3
         else:
-            return 0
+            # note: YT uses non-breaking space \xa0 to separate number and magnitude
+            if re.match(r"^\d([^ ])* [^ ]*$", text):
+                parsed['views'] = text.split(' ')[0]
+
+            elif re.match(r"^(\d+:)*\d+:\d+$", text):
+                parsed['duration'] = text
+
+            elif re.match(r"^\d{4}$", text):
+                parsed['year'] = text
+
+    return parsed
 
 
 def parse_song_album(data, index):
@@ -42,16 +49,6 @@ def parse_song_album(data, index):
         'name': get_item_text(data, index),
         'id': get_browse_id(flex_item, 0)
     }
-
-
-def parse_song_album_runs(runs, last_artist_index):
-    if len(runs) - last_artist_index == 5:  # has album
-        return {
-            'name': runs[last_artist_index + 2]['text'],
-            'id': nav(runs[last_artist_index + 2], NAVIGATION_BROWSE_ID, True)
-        }
-    else:
-        return None
 
 
 def parse_song_menu_tokens(item):
@@ -66,6 +63,24 @@ def parse_song_menu_tokens(item):
         library_add_token, library_remove_token = library_remove_token, library_add_token
 
     return {'add': library_add_token, 'remove': library_remove_token}
+
+
+def parse_menu_playlists(data, result):
+    watch_menu = find_objects_by_key(nav(data, MENU_ITEMS), 'menuNavigationItemRenderer')
+    for item in [_x['menuNavigationItemRenderer'] for _x in watch_menu]:
+        icon = nav(item, ['icon', 'iconType'])
+        if icon == 'MUSIC_SHUFFLE':
+            watch_key = 'shuffleId'
+        elif icon == 'MIX':
+            watch_key = 'radioId'
+        else:
+            continue
+
+        watch_id = nav(item, ['navigationEndpoint', 'watchPlaylistEndpoint', 'playlistId'], True)
+        if not watch_id:
+            watch_id = nav(item, ['navigationEndpoint', 'watchEndpoint', 'playlistId'], True)
+        if watch_id:
+            result[watch_key] = watch_id
 
 
 def get_item_text(item, index, run_index=0, none_if_absent=False):
