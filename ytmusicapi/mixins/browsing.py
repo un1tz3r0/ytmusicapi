@@ -4,8 +4,10 @@ import codecs
 from urllib.parse import parse_qs
 from typing import List, Dict
 from ytmusicapi.helpers import *
+from ytmusicapi.parsers.browsing import *
 from ytmusicapi.parsers.playlists import *
 from ytmusicapi.parsers.utils import treefind
+from ytmusicapi.parsers.library import parse_albums
 
 class BrowsingMixin:
     def search(self,
@@ -725,26 +727,40 @@ class BrowsingMixin:
         Returns results within the provided category.
 
         :param query: Query string, i.e. 'Oasis Wonderwall'
-        :param filter: Filter for item types. Allowed values:
-          'songs', 'videos', 'albums', 'artists', 'playlists', 'uploads'.
+        :param filter: Filter for item types. Allowed values: ``songs``, ``videos``, ``albums``, ``artists``, ``playlists``, ``uploads``.
           Default: Default search, including all types of items.
         :param limit: Number of search results to return
           Default: 20
         :param ignore_spelling: Whether to ignore YTM spelling suggestions.
           If True, the exact search term will be searched for, and will not be corrected.
-          This does not have any effect when the filter is set to 'uploads'.
+          This does not have any effect when the filter is set to ``uploads``.
           Default: False, will use YTM's default behavior of autocorrecting the search.
         :return: List of results depending on filter.
           resultType specifies the type of item (important for default search).
           albums, artists and playlists additionally contain a browseId, corresponding to
-          albumId, channelId and playlistId (browseId='VL'+playlistId)
+          albumId, channelId and playlistId (browseId=``VL``+playlistId)
 
-          Example list::
+          Example list for default search with one result per resultType for brevity. Normally
+          there are 3 results per resultType and an additional ``thumbnails`` key::
 
             [
               {
+                "resultType": "video",
+                "videoId": "vU05Eksc_iM",
+                "title": "Wonderwall",
+                "artists": [
+                  {
+                    "name": "Oasis",
+                    "id": "UCmMUZbaYdNH0bEd1PAlAqsA"
+                  }
+                ],
+                "views": "1.4M",
+                "duration": "4:38"
+              },
+              {
+                "resultType": "song",
                 "videoId": "ZrOKjDZOtkA",
-                "title": "Wonderwall (Remastered)",
+                "title": "Wonderwall",
                 "artists": [
                   {
                     "name": "Oasis",
@@ -756,10 +772,51 @@ class BrowsingMixin:
                   "id": "MPREb_9nqEki4ZDpp"
                 },
                 "duration": "4:19",
-                "thumbnails": [...],
-                "resultType": "song"
+                "isExplicit": false,
+                "feedbackTokens": {
+                  "add": null,
+                  "remove": null
+                }
+              },
+              {
+                "resultType": "album",
+                "browseId": "MPREb_9nqEki4ZDpp",
+                "title": "(What's The Story) Morning Glory? (Remastered)",
+                "type": "Album",
+                "artist": "Oasis",
+                "year": "1995",
+                "isExplicit": false
+              },
+              {
+                "resultType": "playlist",
+                "browseId": "VLPLK1PkWQlWtnNfovRdGWpKffO1Wdi2kvDx",
+                "title": "Wonderwall - Oasis",
+                "author": "Tate Henderson",
+                "itemCount": "174"
+              },
+              {
+                "resultType": "video",
+                "videoId": "bx1Bh8ZvH84",
+                "title": "Wonderwall",
+                "artists": [
+                  {
+                    "name": "Oasis",
+                    "id": "UCmMUZbaYdNH0bEd1PAlAqsA"
+                  }
+                ],
+                "views": "386M",
+                "duration": "4:38"
+              },
+              {
+                "resultType": "artist",
+                "browseId": "UCmMUZbaYdNH0bEd1PAlAqsA",
+                "artist": "Oasis",
+                "shuffleId": "RDAOkjHYJjL1a3xspEyVkhHAsg",
+                "radioId": "RDEMkjHYJjL1a3xspEyVkhHAsg"
               }
             ]
+
+
         """
         body = {'query': query}
         endpoint = 'search'
@@ -927,13 +984,17 @@ class BrowsingMixin:
                 'subheader']['runs'][0]['text']
         subscription_button = header['subscriptionButton']['subscribeButtonRenderer']
         artist['channelId'] = subscription_button['channelId']
+        artist['shuffleId'] = nav(header,
+                                  ['playButton', 'buttonRenderer'] + NAVIGATION_WATCH_PLAYLIST_ID, True)
+        artist['radioId'] = nav(header, ['startRadioButton', 'buttonRenderer']
+                                + NAVIGATION_WATCH_PLAYLIST_ID, True)
         artist['subscribers'] = nav(subscription_button,
                                     ['subscriberCountText', 'runs', 0, 'text'], True)
         artist['subscribed'] = subscription_button['subscribed']
         artist['thumbnails'] = nav(header, THUMBNAILS, True)
         artist['songs'] = {'browseId': None}
         if 'musicShelfRenderer' in results[0]:  # API sometimes does not return songs
-            musicShelf = nav(results, MUSIC_SHELF)
+            musicShelf = nav(results[0], MUSIC_SHELF)
             if 'navigationEndpoint' in nav(musicShelf, TITLE):
                 artist['songs']['browseId'] = nav(musicShelf, TITLE + NAVIGATION_BROWSE_ID)
             artist['songs']['results'] = parse_playlist_items(musicShelf['contents'])
@@ -947,41 +1008,15 @@ class BrowsingMixin:
 
         :param channelId: channel Id of the artist
         :param params: params obtained by :py:func:`get_artist`
-        :return: List of albums or singles
+        :return: List of albums in the format of :py:func:`get_library_albums`,
+          except artists key is missing.
 
-        Example::
-
-            {
-                "browseId": "MPREb_0rtvKhqeCY0",
-                "artist": "Armin van Buuren",
-                "title": "This I Vow (feat. Mila Josef)",
-                "thumbnails": [...],
-                "type": "EP",
-                "year": "2020"
-            }
         """
         body = {"browseId": channelId, "params": params}
         endpoint = 'browse'
         response = self._send_request(endpoint, body)
-        artist = nav(response['header']['musicHeaderRenderer'], TITLE_TEXT)
-        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST + MUSIC_SHELF)
-        albums = []
-        release_type = nav(results, TITLE_TEXT).lower()
-        for result in results['contents']:
-            data = result['musicResponsiveListItemRenderer']
-            browseId = nav(data, NAVIGATION_BROWSE_ID)
-            title = get_item_text(data, 0)
-            thumbnails = nav(data, THUMBNAILS)
-            album_type = get_item_text(data, 1) if release_type == "albums" else "Single"
-            year = get_item_text(data, 1, 2 if release_type == "albums" else 0, True)
-            albums.append({
-                "browseId": browseId,
-                "artist": artist,
-                "title": title,
-                "thumbnails": thumbnails,
-                "type": album_type,
-                "year": year
-            })
+        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST_ITEM + GRID_ITEMS)
+        albums = parse_albums(results)
 
         return albums
 
@@ -1048,36 +1083,15 @@ class BrowsingMixin:
 
         :param channelId: channelId of the user.
         :param params: params obtained by :py:func:`get_artist`
-        :return: List of user playlists.
+        :return: List of user playlists in the format of :py:func:`get_library_playlists`
 
-        Example::
-
-            [
-                {
-                  "browseId": "VLPLkqz3S84Tw-T4WwdS5EAMHegVhWH9vZIx",
-                  "title": "Top 10 vídeos del momento... hasta el momento! | Vevo Playlist",
-                  "thumbnails": [
-                    {
-                      "url": "https://i.ytimg.com/vi/...",
-                      "width": 400,
-                      "height": 225
-                    }
-                  ]
-                }
-            ]
         """
         endpoint = 'browse'
         body = {"browseId": channelId, 'params': params}
         response = self._send_request(endpoint, body)
-        data = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST + MUSIC_SHELF)
-        user_playlists = []
-        for result in data['contents']:
-            data = result['musicResponsiveListItemRenderer']
-            user_playlists.append({
-                "browseId": nav(data, NAVIGATION_BROWSE_ID),
-                "title": get_item_text(data, 0),
-                "thumbnails": nav(data, THUMBNAILS),
-            })
+        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST_ITEM + GRID_ITEMS)
+        user_playlists = parse_content_list(results, parse_playlist)
+
         return user_playlists
 
     def get_album(self, browseId: str) -> Dict:
@@ -1395,4 +1409,3 @@ class BrowsingMixin:
                 'musicDescriptionShelfRenderer']['footer']['runs'][0]['text']
 
         return lyrics
->>>>>>> 8f4dfd19eeae78d6fc66de7c82628a42f2ffbde5

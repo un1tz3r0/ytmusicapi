@@ -28,6 +28,7 @@ class YTMusic(BrowsingMixin, WatchMixin, LibraryMixin, PlaylistsMixin, UploadsMi
     def __init__(self,
                  auth: str = None,
                  user: str = None,
+                 requests_session=True,
                  proxies: dict = None,
                  language: str = 'en'):
         """
@@ -43,6 +44,10 @@ class YTMusic(BrowsingMixin, WatchMixin, LibraryMixin, PlaylistsMixin, UploadsMi
           Otherwise the default account is used. You can retrieve the user ID
           by going to https://myaccount.google.com/brandaccounts and selecting your brand account.
           The user ID will be in the URL: https://myaccount.google.com/b/user_id/
+        :param requests_session: A Requests session object or a truthy value to create one.
+          A falsy value disables sessions.
+          It is generally a good idea to keep sessions enabled for
+          performance reasons (connection pooling).
         :param proxies: Optional. Proxy configuration in requests_ format_.
 
             .. _requests: https://requests.readthedocs.io/
@@ -53,6 +58,15 @@ class YTMusic(BrowsingMixin, WatchMixin, LibraryMixin, PlaylistsMixin, UploadsMi
             the ytmusicapi/locales directory.
         """
         self.auth = auth
+
+        if isinstance(requests_session, requests.Session):
+            self._session = requests_session
+        else:
+            if requests_session:  # Build a new session.
+                self._session = requests.Session()
+            else:  # Use the Requests API module as a "session".
+                self._session = requests.api
+
         self.proxies = proxies
 
         try:
@@ -70,27 +84,26 @@ class YTMusic(BrowsingMixin, WatchMixin, LibraryMixin, PlaylistsMixin, UploadsMi
 
         with open(pkg_resources.resource_filename('ytmusicapi', 'context.json')) as json_file:
             self.context = json.load(json_file)
-            self.context['context']['client']['hl'] = language
-            supported_languages = [
-                f for f in pkg_resources.resource_listdir('ytmusicapi', 'locales')
-            ]
-            if language not in supported_languages:
-                raise Exception("Language not supported. Supported languages are "
-                                ', '.join(supported_languages))
-            self.language = language
-            try:
-                locale.setlocale(locale.LC_ALL, language)
-            except locale.Error:
-                with suppress(locale.Error):
-                    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-            self.lang = gettext.translation('base',
-                                            localedir=pkg_resources.resource_filename(
-                                                'ytmusicapi', 'locales'),
-                                            languages=[language])
-            self.parser = browsing.Parser(self.lang)
 
-            if user:
-                self.context['context']['user']['onBehalfOfUser'] = user
+        self.context['context']['client']['hl'] = language
+        supported_languages = [f for f in pkg_resources.resource_listdir('ytmusicapi', 'locales')]
+        if language not in supported_languages:
+            raise Exception("Language not supported. Supported languages are "
+                            ', '.join(supported_languages))
+        self.language = language
+        try:
+            locale.setlocale(locale.LC_ALL, self.language)
+        except locale.Error:
+            with suppress(locale.Error):
+                locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
+        self.lang = gettext.translation('base',
+                                        localedir=pkg_resources.resource_filename(
+                                            'ytmusicapi', 'locales'),
+                                        languages=[language])
+        self.parser = browsing.Parser(self.lang)
+
+        if user:
+            self.context['context']['user']['onBehalfOfUser'] = user
 
         # verify authentication credentials work
         if auth:
@@ -105,10 +118,10 @@ class YTMusic(BrowsingMixin, WatchMixin, LibraryMixin, PlaylistsMixin, UploadsMi
         if self.auth:
             origin = self.headers.get('origin', self.headers.get('x-origin'))
             self.headers["Authorization"] = get_authorization(self.sapisid + ' ' + origin)
-        response = requests.post(base_url + endpoint + params + additionalParams,
-                                 json=body,
-                                 headers=self.headers,
-                                 proxies=self.proxies)
+        response = self._session.post(base_url + endpoint + params + additionalParams,
+                                      json=body,
+                                      headers=self.headers,
+                                      proxies=self.proxies)
         response_text = json.loads(response.text)
         if response.status_code >= 400:
             message = "Server returned HTTP " + str(

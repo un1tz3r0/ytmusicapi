@@ -7,7 +7,7 @@ from ytmusicapi.ytmusic import YTMusic  # noqa: E402
 config = configparser.RawConfigParser()
 config.read('./test.cfg', 'utf-8')
 
-youtube = YTMusic()
+youtube = YTMusic(requests_session=False)
 youtube_auth = YTMusic(config['auth']['headers_file'])
 youtube_brand = YTMusic(config['auth']['headers'], config['auth']['brand_account'])
 
@@ -50,12 +50,12 @@ class TestYTMusic(unittest.TestCase):
 
     def test_get_artist(self):
         results = youtube.get_artist("MPLAUCmMUZbaYdNH0bEd1PAlAqsA")
-        self.assertEqual(len(results), 11)
+        self.assertEqual(len(results), 13)
         results = youtube.get_artist("UCLZ7tlKC06ResyDmEStSrOw")  # no album year
-        self.assertGreaterEqual(len(results), 9)
+        self.assertGreaterEqual(len(results), 11)
         results = youtube.get_artist(
             "UCDAPd3S5CBIEKXn-tvy57Lg")  # no thumbnail, albums, subscribe count
-        self.assertGreaterEqual(len(results), 9)
+        self.assertGreaterEqual(len(results), 11)
 
     def test_get_artist_albums(self):
         artist = youtube.get_artist("UCAeLFBCQS7FvI8PvBrWvSBg")
@@ -93,7 +93,7 @@ class TestYTMusic(unittest.TestCase):
 
     def test_get_streaming_data(self):
         streaming_data = youtube_auth.get_streaming_data("ZrOKjDZOtkA")
-        self.assertEqual(len(streaming_data), 3)
+        self.assertGreaterEqual(len(streaming_data), 3)
 
     def test_get_lyrics(self):
         playlist = youtube.get_watch_playlist("ZrOKjDZOtkA")
@@ -111,7 +111,7 @@ class TestYTMusic(unittest.TestCase):
 
     def test_get_watch_playlist(self):
         playlist = youtube_auth.get_watch_playlist("9mWr4c_ig54", limit=50)
-        self.assertGreater(len(playlist['tracks']), 50)
+        self.assertGreater(len(playlist['tracks']), 45)
         playlist = youtube_auth.get_watch_playlist("UoAf_y9Ok4k")  # private track
         self.assertGreaterEqual(len(playlist['tracks']), 25)
 
@@ -121,9 +121,9 @@ class TestYTMusic(unittest.TestCase):
         self.assertEqual(len(playlist['tracks']), 12)
 
     def test_get_watch_playlist_shuffle_playlist(self):
-        playlist = youtube.get_watch_playlist_shuffle(
-            playlistId="PL528pVfw3ao0x8jlW3kwdIx1FEMMeeghb", limit=99)
-        self.assertGreaterEqual(len(playlist['tracks']), 99)
+        playlist = youtube_auth.get_watch_playlist_shuffle(
+            videoId="u6XiiXJD0jg", playlistId="PL528pVfw3ao2VzfY6zE1TOZm1cBSdk7Q0", limit=99)
+        self.assertGreaterEqual(len(playlist['tracks']), 80)
 
     ###############
     # LIBRARY
@@ -131,7 +131,7 @@ class TestYTMusic(unittest.TestCase):
 
     def test_get_library_playlists(self):
         playlists = youtube_brand.get_library_playlists(50)
-        self.assertGreater(len(playlists), 0)
+        self.assertGreater(len(playlists), 25)
 
     def test_get_library_songs(self):
         songs = youtube_brand.get_library_songs(100)
@@ -146,34 +146,34 @@ class TestYTMusic(unittest.TestCase):
         self.assertGreaterEqual(len(songs), 25)
 
     def test_get_library_albums(self):
-        albums = youtube_brand.get_library_albums(100)
-        self.assertGreater(len(albums), 0)
+        albums = youtube_auth.get_library_albums(100)
+        self.assertGreater(len(albums), 50)
         albums = youtube_brand.get_library_albums(100, order='a_to_z')
-        self.assertGreater(len(albums), 0)
+        self.assertGreater(len(albums), 50)
         albums = youtube_brand.get_library_albums(100, order='z_to_a')
-        self.assertGreater(len(albums), 0)
+        self.assertGreater(len(albums), 50)
         albums = youtube_brand.get_library_albums(100, order='recently_added')
-        self.assertGreater(len(albums), 0)
+        self.assertGreater(len(albums), 50)
 
     def test_get_library_artists(self):
-        artists = youtube_brand.get_library_artists(100)
-        self.assertGreater(len(artists), 0)
-        artists = youtube_brand.get_library_artists(order='a_to_z')
-        self.assertGreater(len(artists), 0)
+        artists = youtube_brand.get_library_artists(50)
+        self.assertGreater(len(artists), 40)
+        artists = youtube_brand.get_library_artists(order='a_to_z', limit=50)
+        self.assertGreater(len(artists), 40)
         artists = youtube_brand.get_library_artists(order='z_to_a')
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 20)
         artists = youtube_brand.get_library_artists(order='recently_added')
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 20)
 
     def test_get_library_subscriptions(self):
         artists = youtube_brand.get_library_subscriptions(50)
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 40)
         artists = youtube_brand.get_library_subscriptions(order='a_to_z')
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 20)
         artists = youtube_brand.get_library_subscriptions(order='z_to_a')
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 20)
         artists = youtube_brand.get_library_subscriptions(order='recently_added')
-        self.assertGreater(len(artists), 0)
+        self.assertGreater(len(artists), 20)
 
     def test_get_liked_songs(self):
         songs = youtube_brand.get_liked_songs(200)
@@ -270,15 +270,8 @@ class TestYTMusic(unittest.TestCase):
     ###############
 
     def test_get_library_upload_songs(self):
-        results = youtube_auth.get_library_upload_songs(100)
+        results = youtube_auth.get_library_upload_songs(50)
         self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_songs(100, 'a_to_z')
-        self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_songs(100, 'z_to_a')
-        self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_songs(100, 'recently_added')
-        self.assertGreater(len(results), 25)
-        # There is no way to check if the order is correct.
 
     @unittest.skip("Must not have any uploaded songs to pass")
     def test_get_library_upload_songs_empty(self):
@@ -287,13 +280,7 @@ class TestYTMusic(unittest.TestCase):
 
     def test_get_library_upload_albums(self):
         results = youtube_auth.get_library_upload_albums(50)
-        self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_albums(50, order='a_to_z')
-        self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_albums(50, order='z_to_a')
-        self.assertGreater(len(results), 25)
-        results = youtube_auth.get_library_upload_albums(50, order='recently_added')
-        self.assertGreater(len(results), 25)
+        self.assertGreater(len(results), 40)
 
     @unittest.skip("Must not have any uploaded albums to pass")
     def test_get_library_upload_albums_empty(self):

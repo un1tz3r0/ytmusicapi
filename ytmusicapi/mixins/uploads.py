@@ -71,24 +71,9 @@ class UploadsMixin:
             body["params"] = prepare_order_params(order)
         endpoint = 'browse'
         response = self._send_request(endpoint, body)
-        results = find_object_by_key(nav(response, SINGLE_COLUMN_TAB + SECTION_LIST),
-                                     'itemSectionRenderer')
-        results = nav(results, ITEM_SECTION)
-        if 'gridRenderer' not in results:
-            return []
-        else:
-            results = results['gridRenderer']
-        albums = parse_albums(results['items'])
-
-        if 'continuations' in results:
-            request_func = lambda additionalParams: self._send_request(
-                endpoint, body, additionalParams)
-            parse_func = lambda contents: parse_albums(contents)
-            albums.extend(
-                get_continuations(results, 'gridContinuation', limit - len(albums), request_func,
-                                  parse_func))
-
-        return albums
+        return parse_library_albums(
+            response,
+            lambda additionalParams: self._send_request(endpoint, body, additionalParams), limit)
 
     def get_library_upload_artists(self, limit: int = 25, order: str = None) -> List[Dict]:
         """
@@ -105,24 +90,9 @@ class UploadsMixin:
             body["params"] = prepare_order_params(order)
         endpoint = 'browse'
         response = self._send_request(endpoint, body)
-        results = find_object_by_key(nav(response, SINGLE_COLUMN_TAB + SECTION_LIST),
-                                     'itemSectionRenderer')
-        results = nav(results, ITEM_SECTION)
-        if 'musicShelfRenderer' not in results:
-            return []
-        else:
-            results = results['musicShelfRenderer']
-        artists = parse_artists(results['contents'], True)
-
-        if 'continuations' in results:
-            request_func = lambda additionalParams: self._send_request(
-                endpoint, body, additionalParams)
-            parse_func = lambda contents: parse_artists(contents, True)
-            artists.extend(
-                get_continuations(results, 'musicShelfContinuation', limit - len(artists),
-                                  request_func, parse_func))
-
-        return artists
+        return parse_library_artists(
+            response,
+            lambda additionalParams: self._send_request(endpoint, body, additionalParams), limit)
 
     def get_library_upload_artist(self, browseId: str, limit: int = 25) -> List[Dict]:
         """
@@ -155,7 +125,7 @@ class UploadsMixin:
         body = prepare_browse_endpoint("ARTIST", browseId)
         endpoint = 'browse'
         response = self._send_request(endpoint, body)
-        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST + MUSIC_SHELF)
+        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST_ITEM + MUSIC_SHELF)
         if len(results['contents']) > 1:
             results['contents'].pop(0)
 
@@ -165,7 +135,9 @@ class UploadsMixin:
             request_func = lambda additionalParams: self._send_request(
                 endpoint, body, additionalParams)
             parse_func = lambda contents: parse_uploaded_items(contents)
-            items.extend(get_continuations(results, 'musicShelfContinuation', limit, request_func, parse_func))
+            items.extend(
+                get_continuations(results, 'musicShelfContinuation', limit, request_func,
+                                  parse_func))
 
         return items
 
@@ -220,7 +192,7 @@ class UploadsMixin:
         else:
             album['duration'] = header['secondSubtitle']['runs'][0]['text']
 
-        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST + MUSIC_SHELF)
+        results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST_ITEM + MUSIC_SHELF)
         album['tracks'] = parse_uploaded_items(results['contents'])
         return album
 
