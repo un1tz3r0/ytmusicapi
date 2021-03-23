@@ -222,7 +222,7 @@ class PlaylistsMixin:
         :param videoIds: List of Video ids
         :param source_playlist: Playlist id of a playlist to add to the current playlist (no duplicate check)
         :param duplicates: If True, duplicates will be added. If False, an error will be returned if there are duplicates (no items are added to the playlist)
-        :return: Status String or full response
+        :return: Status String and a dict containing the new setVideoId for each videoId or full response
         """
         self._check_auth()
         body = {'playlistId': playlistId, 'actions': []}
@@ -232,6 +232,10 @@ class PlaylistsMixin:
                 action['dedupeOption'] = 'DEDUPE_OPTION_SKIP'
             body['actions'].append(action)
 
+        # add an empty ACTION_ADD_VIDEO because otherwise YTM doesn't return the dict that maps videoIds to their new setVideoIds
+        if source_playlist and not videoIds:
+            body['actions'].append({'action': 'ACTION_ADD_VIDEO', 'addedVideoId': None})
+
         if source_playlist:
             body['actions'].append({
                 'action': 'ACTION_ADD_PLAYLIST',
@@ -240,9 +244,14 @@ class PlaylistsMixin:
 
         endpoint = 'browse/edit_playlist'
         response = self._send_request(endpoint, body)
-        return response['status'] \
-            if 'status' in response and 'SUCCEEDED' in response['status'] \
-            else response
+        if 'status' in response and 'SUCCEEDED' in response['status']:
+            result_dict = [
+                result_data.get("playlistEditVideoAddedResultData")
+                for result_data in response.get("playlistEditResults", [])
+            ]
+            return {"status": response["status"], "playlistEditResults": result_dict}
+        else:
+            return response
 
     def remove_playlist_items(self, playlistId: str, videos: List[Dict]) -> Union[str, Dict]:
         """
