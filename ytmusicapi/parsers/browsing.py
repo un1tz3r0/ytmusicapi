@@ -306,7 +306,6 @@ class Parser:
                                                                  categories_parser[i])
 
         return artist
->>>>>>> 8f4dfd19eeae78d6fc66de7c82628a42f2ffbde5
 
 
 def parse_content_list(results, parse_func):
