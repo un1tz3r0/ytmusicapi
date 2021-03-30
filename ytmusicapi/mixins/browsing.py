@@ -897,10 +897,11 @@ class BrowsingMixin:
     def get_artist(self, channelId: str) -> Dict:
         """
         Get information about an artist and their top releases (songs,
-        albums, singles and videos). The top lists contain pointers
-        for getting the full list of releases. For songs/videos, pass
-        the browseId to :py:func:`get_playlist`. For albums/singles,
-        pass browseId and params to :py:func:`get_artist_albums`.
+        albums, singles, videos, and related artists). The top lists
+        contain pointers for getting the full list of releases. For
+        songs/videos, pass the browseId to :py:func:`get_playlist`.
+        For albums/singles, pass browseId and params to :py:func:
+        `get_artist_albums`.
 
         :param channelId: channel id of the artist
         :return: Dictionary with requested information.
@@ -962,6 +963,21 @@ class BrowsingMixin:
                         }
                     ],
                     "browseId": "VLPLMpM3Z0118S5xuNckw1HUcj1D021AnMEB"
+                },
+                "related": {
+                    "results": [
+                        {
+                            "browseId": "UCt2KxZpY5D__kapeQ8cauQw",
+                            "subscribers": "450K",
+                            "title": "The Verve"
+                        },
+                        {
+                            "browseId": "UCwK2Grm574W1u-sBzLikldQ",
+                            "subscribers": "341K",
+                            "title": "Liam Gallagher"
+                        },
+                        ...
+                    ]
                 }
             }
         """
@@ -971,6 +987,10 @@ class BrowsingMixin:
         endpoint = 'browse'
         response = self._send_request(endpoint, body)
         results = nav(response, SINGLE_COLUMN_TAB + SECTION_LIST)
+
+        if len(results) == 1:
+            # not a YouTube Music Channel, a standard YouTube Channel ID with no music content was given
+            raise ValueError(f"The YouTube Channel {channelId} has no music content.")
 
         artist = {'description': None, 'views': None}
         header = response['header']['musicImmersiveHeaderRenderer']
@@ -985,7 +1005,8 @@ class BrowsingMixin:
         subscription_button = header['subscriptionButton']['subscribeButtonRenderer']
         artist['channelId'] = subscription_button['channelId']
         artist['shuffleId'] = nav(header,
-                                  ['playButton', 'buttonRenderer'] + NAVIGATION_WATCH_PLAYLIST_ID, True)
+                                  ['playButton', 'buttonRenderer'] + NAVIGATION_WATCH_PLAYLIST_ID,
+                                  True)
         artist['radioId'] = nav(header, ['startRadioButton', 'buttonRenderer']
                                 + NAVIGATION_WATCH_PLAYLIST_ID, True)
         artist['subscribers'] = nav(subscription_button,
