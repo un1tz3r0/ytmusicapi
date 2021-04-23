@@ -211,7 +211,6 @@ class Parser:
                 search_result['playlistId'] = nav(data, NAVIGATION_PLAYLIST_ID)
 
             elif resultType == 'song':
-                search_result['duration'] = None
                 search_result['album'] = None
                 if 'menu' in data:
                     toggle_menu = find_object_by_key(nav(data, MENU_ITEMS), TOGGLE_MENU)
@@ -264,8 +263,13 @@ class Parser:
                     True)
 
             if resultType in ['song', 'video', 'album']:
+                search_result['duration'] = None
                 search_result['year'] = None
-                song_info = parse_song_runs(get_flex_column_item(data, 1)['text']['runs'])
+                has_offset = resultType == 'album' or (default_offset
+                                                       and bool(search_result['videoId']))
+                flex_item = get_flex_column_item(data, 1)
+                runs = flex_item['text']['runs'][2 * has_offset:]
+                song_info = parse_song_runs(runs)
                 search_result.update(song_info)
 
             if resultType in ['artist', 'album', 'playlist']:
@@ -362,9 +366,12 @@ def parse_playlist(data):
 
 
 def parse_related_artist(data):
+    subscribers = nav(data, SUBTITLE, True)
+    if subscribers:
+        subscribers = subscribers.split(' ')[0]
     return {
         'title': nav(data, TITLE_TEXT),
         'browseId': nav(data, TITLE + NAVIGATION_BROWSE_ID),
-        'subscribers': nav(data, SUBTITLE).split(' ')[0],
+        'subscribers': subscribers,
         'thumbnails': nav(data, THUMBNAIL_RENDERER),
     }
