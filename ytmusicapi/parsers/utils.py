@@ -100,6 +100,10 @@ def get_parsed_continuation_items(response, parse_func, continuation_type):
 def get_continuation_params(results, ctoken_path):
     ctoken = nav(results,
                  ['continuations', 0, 'next' + ctoken_path + 'ContinuationData', 'continuation'])
+    return get_continuation_string(ctoken)
+
+
+def get_continuation_string(ctoken):
     return "&ctoken=" + ctoken + "&continuation=" + ctoken
 
 
@@ -132,6 +136,10 @@ def validate_response(response, per_page, limit, current_count):
 
     # response is invalid, if it has less items then minimal expected count
     return len(response['parsed']) >= expected_items_count
+
+
+def validate_playlist_id(playlistId):
+    return playlistId if not playlistId.startswith("VL") else playlistId[2:]
 
 
 def nav(root, items, none_if_absent=False):
